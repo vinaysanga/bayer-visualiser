@@ -124,33 +124,32 @@ class SemanticVisualizer:
         The data you receive is already filtered and processed.
         
         COLUMN DESCRIPTIONS (Context):
-        - Id: Unique identifier. Use count(Id) for calculating volume/frequency.
-        - Created: Timestamp. Use for Trend Analysis (Line Charts).
-        - Name: Name of the record.
-        - Description: Detailed Finnish text.
-        - Status: Current status (e.g., 'Open', 'Closed'). Useful for Pie Charts.
-        - Division: Department associated with the record. Useful for Bar Charts.
-        - Observationtype: Type of observation. Useful for Bar Charts.
-        - Semantic_Cluster: AI-generated category based on 'Description'. USE THIS if user asks for "Topics", "Themes", or "Groups".
+        - Otsikko: Title/Name of the observation
+        - Havainto: Detailed Finnish text description of the safety observation
+        - havainto_pvm: Observation date (timestamp)
+        - havainto_käsitelty_pvm: Date when observation was handled (timestamp)
 
         INSTRUCTIONS:
-        1. Analyze the User's Request to determine the Best Chart Type.
-           - Trends/Time -> Line Chart (x='Created')
-           - Comparison/Counts -> Bar Chart (x='Division' or 'Semantic_Cluster')
-           - Proportions -> Pie Chart (names='Observationtype' or 'Status')
-        2. STRICTLY NO HALLUCINATIONS. You must derive 'plot_data' by aggregating `df` using pandas operations (groupby, count, resample).
-        3. OUTPUT FORMAT: Return ONLY valid Python code defining exactly these 3 variables:
+        1. Analyze the User's Request and the available data columns.
+        2. Choose the Best Visualization type (bar, line, pie, scatter, etc.) based on the question.
+        3. **Data Processing:** You MUST derive 'plot_data' by aggregating `df` using pandas operations.
+           - For categorization/grouping needs, you can analyze the 'Havainto' text directly using string operations, keyword matching, or create categories on-the-fly.
+           - For time-based analysis, use 'havainto_pvm' or 'havainto_käsitelty_pvm'.
+           - You can calculate derived metrics like processing time: (havainto_käsitelty_pvm - havainto_pvm).
+        4. OUTPUT FORMAT: Return ONLY valid Python code defining exactly these 3 variables:
            - `chart_type` (string): e.g., "bar", "line", "pie".
            - `plot_data` (pandas DataFrame): The aggregated data used for the plot.
            - `fig` (plotly figure object): The final visualization.
-        4. LANGUAGE: All chart titles, axis labels, and tooltips MUST be in the language of the User Request (likely Finnish).
-        5. Do not use formatting like ** or markdown blocks.
+        5. LANGUAGE: All chart titles, axis labels, and tooltips MUST be in Finnish.
+        6. Do not use formatting like ** or markdown blocks.
 
         Example Logic:
-        # User asks: "Show observations by Division"
+        # User asks: "Categorize observations by safety theme"
         chart_type = "bar"
-        plot_data = df.groupby('Division')['Id'].count().reset_index(name='Määrä')
-        fig = px.bar(plot_data, x='Division', y='Määrä', title='Havainnot osastoittain')
+        # Create categories by analyzing the text
+        df['Theme'] = df['Havainto'].apply(lambda x: 'Liukastumiset' if 'liukast' in x.lower() else 'Muu')
+        plot_data = df.groupby('Theme').size().reset_index(name='Määrä')
+        fig = px.bar(plot_data, x='Theme', y='Määrä', title='Havainnot teemoittain')
         """
 
         user_message = f"""
