@@ -1,8 +1,0 @@
-pandas
-openpyxl
-streamlit
-plotly
-scikit-learn
-pytest
-openai
-python-dotenv
