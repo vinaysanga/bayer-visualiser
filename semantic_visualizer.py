@@ -1,7 +1,5 @@
 import pandas as pd
 import json
-from sentence_transformers import SentenceTransformer
-from sklearn.cluster import KMeans
 import plotly.express as px
 import plotly.graph_objects as go
 from openai import OpenAI
@@ -9,8 +7,6 @@ import config
 
 class SemanticVisualizer:
     def __init__(self, openrouter_api_key, llm_model):
-        print("   -> Loading BAAI/bge-m3 embedding model...")
-        self.embedder = SentenceTransformer('BAAI/bge-m3')
         self.llm_model = llm_model
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",

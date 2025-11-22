@@ -57,24 +57,6 @@ LLM_TEMPERATURE_CATEGORIZATION = 0.3  # Lower = more consistent categories
 LLM_TEMPERATURE_VISUALIZATION = 0.0   # 0 = deterministic code generation
 ```
 
-## Data Setup
-
-1. Place your Excel file at `data/bayer_data.xlsx`
-2. Ensure it has these columns:
-   - `Otsikko`: Observation title
-   - `Havainto`: Detailed description (Finnish text)
-   - `havainto_pvm`: Observation date
-   - `havainto_käsitelty_pvm`: Handling date
-
-3. Create `data/prompts.json` with scenario-specific questions:
-
-```json
-{
-  "Sheet1": "Mikä on yleisin turvallisuushavainto?",
-  "Sheet2": "Näytä havainnot sijainnin mukaan"
-}
-```
-
 ## Usage
 
 ### Start the Application
