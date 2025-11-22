@@ -20,7 +20,7 @@ if 'visualizer' not in st.session_state:
     st.session_state.visualizer = SemanticVisualizer(OPENROUTER_API_KEY, MODEL_NAME)
 
 st.title("🛡️ Bayer HSE - Verified Analytics")
-st.markdown("LLM-powered visualization: Raw Data → Intelligent Analysis → Aggregated Table → Visualization.")
+st.markdown("Two-stage LLM pipeline: Raw Data → LLM Categorization → LLM Visualization → Verified Results.")
 
 # 1. LOAD
 @st.cache_resource
@@ -51,7 +51,7 @@ if xl:
             if sheet_changed:
                 st.session_state.current_sheet = selected_sheet
                 # Clear all analysis-related session state
-                for key in ['processed_df', 'last_result', 'last_code', 'last_proc_df']:
+                for key in ['processed_df', 'last_result', 'last_code', 'last_proc_df', 'is_processing']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -77,8 +77,36 @@ def load_prompts():
 
 prompts_map = load_prompts()
 
-# 2. SHOW UI
-if 'df' in st.session_state and st.session_state.df is not None:
+# 2. PROCESS (runs when is_processing is True)
+if st.session_state.get('is_processing', False):    
+    df = st.session_state.df
+    current_sheet = st.session_state.get('current_sheet', '')
+    default_prompt = prompts_map.get(current_sheet, "Valitse analyysi...")
+    
+    # Stage 1: LLM Clustering
+    with st.spinner("Analysoidaan dataa ja luodaan kategorioita..."):
+        enriched_df = st.session_state.visualizer.llm_cluster_dataframe(df, default_prompt)
+    
+    # Stage 2: LLM Visualization
+    with st.spinner("Generoidaan visualisointia..."):
+        # A. Get Code
+        code = st.session_state.visualizer.generate_visualization_code(default_prompt, enriched_df)
+        
+        # B. Execute and get DICT response
+        result = st.session_state.visualizer.execute_code(code, enriched_df)
+        
+        if result["success"]:
+            st.session_state.last_result = result
+            st.session_state.last_code = code
+        else:
+            st.error(f"Virhe: {result['error']}")
+    
+    # Clear processing flag and rerun to show results
+    st.session_state.is_processing = False
+    st.rerun()
+
+# 3. SHOW UI (only if not processing)
+if 'df' in st.session_state and st.session_state.df is not None and not st.session_state.get('is_processing', False):
     df = st.session_state.df
     
     st.divider()
@@ -94,18 +122,9 @@ if 'df' in st.session_state and st.session_state.df is not None:
         st.info(f"**Skenaarion kysymys:**\n\n{default_prompt}")
         
         if st.button("Suorita Analyysi"):
-            with st.spinner("Analysoidaan ja visualisoidaan..."):
-                # A. Get Code (LLM handles everything including clustering/categorization)
-                code = st.session_state.visualizer.generate_visualization_code(default_prompt, df)
-                
-                # B. Execute and get DICT response
-                result = st.session_state.visualizer.execute_code(code, df)
-                
-                if result["success"]:
-                    st.session_state.last_result = result
-                    st.session_state.last_code = code
-                else:
-                    st.error(f"Virhe: {result['error']}")
+            # Set processing flag and rerun to hide UI
+            st.session_state.is_processing = True
+            st.rerun()
 
     with col_viz:
         if 'last_result' in st.session_state:

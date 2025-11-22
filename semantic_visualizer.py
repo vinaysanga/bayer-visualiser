@@ -16,59 +16,62 @@ class SemanticVisualizer:
             api_key=openrouter_api_key,
         )
 
-    def augment_dataframe(self, df, text_column='Description', n_clusters=6):
+    def llm_cluster_dataframe(self, df, user_query):
         """
-        Phase 1: Semantic Clustering
-        Target column is now 'Description' based on your Athena schema.
+        Phase 1: LLM-based Data Transformation
+        The LLM analyzes the observations and transforms the data as needed to answer the question.
         """
-        # Fallback: If 'Description' is missing (e.g. raw CSV is 'Havainto'), try to find it
-        if text_column not in df.columns:
-            # Check for common Finnish alias or default to 2nd column
-            text_column = 'Havainto' if 'Havainto' in df.columns else df.columns[1]
-
-        print(f"   -> Embedding column: {text_column}")
-        # Force string conversion to avoid errors with mixed types
-        embeddings = self.embedder.encode(df[text_column].astype(str).tolist(), show_progress_bar=True)
+        print(f"   -> LLM analyzing and transforming data...")
         
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        df['Cluster_ID'] = kmeans.fit_transform(embeddings).argmax(axis=1)
+        # Send all observations to LLM for analysis
+        all_observations = df['Havainto'].tolist()
         
-        # Create the Semantic Cluster column used in the Prompt
-        # df['Semantic_Cluster'] = df['Cluster_ID'].apply(lambda x: f"Semanttinen Ryhmä {x+1}")
-        
-        # NEW: Generate descriptive names for clusters
-        print("   -> Generating descriptive names for clusters...")
-        cluster_names = self._generate_cluster_names(df, text_column, n_clusters)
-        df['Semantic_Cluster'] = df['Cluster_ID'].map(cluster_names)
-        
-        return df
-
-    def _generate_cluster_names(self, df, text_column, n_clusters):
-        """
-        Generates short, descriptive names for each cluster using the LLM.
-        """
-        cluster_names = {}
-        
-        # Prepare samples for the LLM
-        samples_text = ""
-        for i in range(n_clusters):
-            # Get up to 5 random samples from this cluster
-            cluster_samples = df[df['Cluster_ID'] == i][text_column].sample(min(5, len(df[df['Cluster_ID'] == i]))).tolist()
-            samples_text += f"Cluster {i}:\n" + "\n".join([f"- {s}" for s in cluster_samples]) + "\n\n"
-            
         system_prompt = """
-        You are a Safety Data Analyst. Your task is to name clusters of safety observations.
+        You are a Safety Data Analyst. Your task is to analyze safety observations and transform the data to best answer the user's question.
         
-        I will provide samples of text from different clusters.
-        For each cluster, generate a VERY SHORT (2-4 words), descriptive name in FINNISH.
-        The name should summarize the common theme (e.g., "Liukastumiset", "Kemikaalit", "Suojavarusteet").
+        I will provide you with safety observations in Finnish and a specific analysis question. Your job is to:
+        1. Understand what the question is asking
+        2. Decide what data transformations/categorizations would help answer it
+        3. Create appropriate categories, groupings, or derived fields as needed
         
-        Output format MUST be a JSON object where keys are "Cluster 0", "Cluster 1", etc., and values are the names.
-        Example:
+        You have complete freedom to:
+        - Create as many or as few categories as makes sense
+        - Define categories based on keywords, patterns, themes, or any other logic
+        - Add multiple derived columns if needed
+        - Use any categorization scheme that helps answer the question
+        
+        Return a JSON object with:
+        1. "transformations": A list of transformations to apply, where each transformation has:
+           - "column_name": Name of the new column to create
+           - "description": What this column represents
+           - "classification_logic": How to classify each observation (as a dictionary mapping category names to keyword lists or logic)
+        
+        Example output:
         {
-            "Cluster 0": "Liukastumiset ja kaatumiset",
-            "Cluster 1": "Puutteellinen suojaus"
+            "transformations": [
+                {
+                    "column_name": "Safety_Theme",
+                    "description": "Main safety theme of the observation",
+                    "classification_logic": {
+                        "Liukastumiset": ["liukast", "kaatu", "märkä", "lattia"],
+                        "Kemikaalit": ["kemikaali", "roiske", "aine"],
+                        "Sähköturvallisuus": ["sähkö", "johto", "pistorasia"],
+                        "Muut": []
+                    }
+                }
+            ]
         }
+        
+        Note: For the "Muut" or default category, use an empty list []. It will catch everything not matched by other categories.
+        """
+        
+        user_message = f"""
+        User's Analysis Question: "{user_query}"
+        
+        All Observations ({len(df)} total):
+        {chr(10).join([f"{i+1}. {obs}" for i, obs in enumerate(all_observations)])}
+        
+        Analyze these observations and decide how to transform the data to best answer the question.
         """
         
         try:
@@ -76,35 +79,52 @@ class SemanticVisualizer:
                 model=self.llm_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Here are the samples:\n\n{samples_text}"}
+                    {"role": "user", "content": user_message}
                 ],
-                temperature=0.5,
+                temperature=0.3,
                 response_format={"type": "json_object"}
             )
             
-            response_content = response.choices[0].message.content
-            names_json = json.loads(response_content)
+            result = json.loads(response.choices[0].message.content)
+            transformations = result.get("transformations", [])
             
-            # Map "Cluster X" keys back to integers
-            for key, name in names_json.items():
-                try:
-                    cluster_id = int(key.split(" ")[1])
-                    cluster_names[cluster_id] = name
-                except:
-                    continue
-                    
-            # Fill in any missing clusters with generic names
-            for i in range(n_clusters):
-                if i not in cluster_names:
-                    cluster_names[i] = f"Ryhmä {i+1}"
-                    
-        except Exception as e:
-            print(f"Error generating cluster names: {e}")
-            # Fallback to generic names
-            for i in range(n_clusters):
-                cluster_names[i] = f"Ryhmä {i+1}"
+            if not transformations:
+                print("   -> No transformations suggested by LLM")
+                return df.copy()
+            
+            df_copy = df.copy()
+            
+            # Apply each transformation
+            for trans in transformations:
+                column_name = trans.get("column_name", "LLM_Category")
+                classification_logic = trans.get("classification_logic", {})
                 
-        return cluster_names
+                print(f"   -> Creating column '{column_name}' with {len(classification_logic)} categories")
+                
+                # Create a classification function
+                def classify_observation(text):
+                    text_lower = str(text).lower()
+                    for category, keywords in classification_logic.items():
+                        if not keywords:  # Empty list means default/catch-all category
+                            continue
+                        if any(keyword in text_lower for keyword in keywords):
+                            return category
+                    # Return the first category with empty keywords list, or "Luokittelematon"
+                    for category, keywords in classification_logic.items():
+                        if not keywords:
+                            return category
+                    return "Luokittelematon"
+                
+                df_copy[column_name] = df_copy['Havainto'].apply(classify_observation)
+            
+            return df_copy
+            
+        except Exception as e:
+            print(f"   [ERROR] LLM transformation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback: return original dataframe
+            return df.copy()
 
     def generate_visualization_code(self, user_query, df):
         """
@@ -176,7 +196,7 @@ class SemanticVisualizer:
 
         code = response.choices[0].message.content
         code = code.replace("```python", "").replace("```", "").strip()
-        print(f"   [DEBUG] Generated Code:\n{code}\n   [DEBUG] End Code")
+        print(f"   [DEBUG] Code generated")
         return code
 
     def execute_code(self, code, df):
