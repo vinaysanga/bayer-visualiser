@@ -1,8 +1,11 @@
+import os
+# Suppress tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import streamlit as st
 import pandas as pd
 from semantic_visualizer import SemanticVisualizer
 
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,19 +23,56 @@ st.title("🛡️ Bayer HSE - Verified Analytics")
 st.markdown("Strict 'No-Hallucination' pipeline: Raw Data -> Semantic Cluster -> Aggregated Table -> Visualization.")
 
 # 1. LOAD
-@st.cache_data
-def load_data():
+@st.cache_resource
+def load_excel_file():
     try:
-        return pd.read_excel("data/bayer_data.xlsx")
+        return pd.ExcelFile("data/bayer_data.xlsx")
     except FileNotFoundError:
         st.error("File 'data/bayer_data.xlsx' not found.")
         return None
 
+xl = load_excel_file()
+
+if xl:
+    with st.sidebar:
+        st.header("Skenaario (Data)")
+        sheet_names = xl.sheet_names
+        selected_sheet = st.selectbox("Valitse aineisto:", sheet_names)
+        
+        # Load the selected sheet
+        if selected_sheet:
+            st.session_state.df = pd.read_excel(xl, sheet_name=selected_sheet)
+            st.success(f"Ladattu '{selected_sheet}': {len(st.session_state.df)} riviä.")
+            
+            # Reset processed state when sheet changes
+            if 'current_sheet' not in st.session_state or st.session_state.current_sheet != selected_sheet:
+                st.session_state.current_sheet = selected_sheet
+                if 'processed_df' in st.session_state:
+                    del st.session_state.processed_df
+                if 'last_result' in st.session_state:
+                    del st.session_state.last_result
+
 if 'df' not in st.session_state:
-    st.session_state.df = load_data()
+    # Fallback if something goes wrong
+    st.stop()
 
 if st.session_state.df is not None:
-    st.success(f"Loaded {len(st.session_state.df)} rows from bayer_data.xlsx")
+    # st.success(f"Loaded {len(st.session_state.df)} rows from bayer_data.xlsx") # Moved to sidebar
+    pass
+
+import json
+
+# Load Prompts
+@st.cache_data
+def load_prompts():
+    try:
+        with open("data/prompts.json", "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        st.error("File 'data/prompts.json' not found.")
+        return {}
+
+prompts_map = load_prompts()
 
 # 2. PROCESS
 if 'df' in st.session_state and st.session_state.df is not None:
@@ -54,29 +94,18 @@ if 'df' in st.session_state and st.session_state.df is not None:
         col_chat, col_viz = st.columns([1, 2])
         
         with col_chat:
-            st.subheader("Valitse Analyysi")
+            st.subheader("Analyysi")
             
-            # Predefined prompts
-            prompts = [
-                "Näytä havaintojen määrä semanttisen ryhmän mukaan",
-                "Näytä havaintojen kehitys ajan yli (jos päivämäärä)",
-                "Mitkä ovat yleisimmät havaintotyypit?",
-                "Jaa havainnot piirakkakaavioon ryhmittäin"
-            ]
+            # Get prompt for current sheet
+            current_sheet = st.session_state.get('current_sheet', '')
+            default_prompt = prompts_map.get(current_sheet, "Valitse analyysi...")
             
-            selected_prompt = st.selectbox("Valitse valmis kysely:", prompts)
-            
-            # Optional: Allow custom prompt
-            use_custom = st.checkbox("Kirjoita oma kysely")
-            if use_custom:
-                query = st.text_area("Kirjoita kysely:", selected_prompt)
-            else:
-                query = selected_prompt
+            st.info(f"**Skenaarion kysymys:**\n\n{default_prompt}")
             
             if st.button("Suorita Analyysi"):
-                with st.spinner("Generoidaan visualisointia..."):
+                with st.spinner("Analysoidaan ja visualisoidaan..."):
                     # A. Get Code
-                    code = st.session_state.visualizer.generate_visualization_code(query, proc_df)
+                    code = st.session_state.visualizer.generate_visualization_code(default_prompt, proc_df)
                     
                     # B. Execute and get DICT response
                     result = st.session_state.visualizer.execute_code(code, proc_df)
