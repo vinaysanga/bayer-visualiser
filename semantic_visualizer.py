@@ -5,6 +5,7 @@ from sklearn.cluster import KMeans
 import plotly.express as px
 import plotly.graph_objects as go
 from openai import OpenAI
+import config
 
 class SemanticVisualizer:
     def __init__(self, openrouter_api_key, llm_model):
@@ -81,7 +82,7 @@ class SemanticVisualizer:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                temperature=0.3,
+                temperature=config.LLM_TEMPERATURE_CATEGORIZATION,
                 response_format={"type": "json_object"}
             )
             
@@ -128,7 +129,7 @@ class SemanticVisualizer:
 
     def generate_visualization_code(self, user_query, df):
         """
-        Phase 2: The Visualizer Architect (Updated with Athena Schema & Strict Logic)
+        Phase 2: The Visualizer Architect
         """
         # 1. Context Construction
         print(f"   [DEBUG] Dataframe Columns: {list(df.columns)}")
@@ -191,7 +192,7 @@ class SemanticVisualizer:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ],
-            temperature=0.0 # Zero temp for strict adherence
+            temperature=config.LLM_TEMPERATURE_VISUALIZATION
         )
 
         code = response.choices[0].message.content

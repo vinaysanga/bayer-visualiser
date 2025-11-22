@@ -19,8 +19,7 @@ st.set_page_config(page_title="Bayer HSE Visualizer", layout="wide")
 if 'visualizer' not in st.session_state:
     st.session_state.visualizer = SemanticVisualizer(OPENROUTER_API_KEY, MODEL_NAME)
 
-st.title("🛡️ Bayer HSE - Verified Analytics")
-st.markdown("Two-stage LLM pipeline: Raw Data → LLM Categorization → LLM Visualization → Verified Results.")
+st.title("🛡️ Bayer HSE - Visualizer Demo")
 
 # 1. LOAD
 @st.cache_resource
@@ -135,12 +134,7 @@ if 'df' in st.session_state and st.session_state.df is not None and not st.sessi
             
             # 2. Show the Chart
             st.plotly_chart(res['fig'], width='content')
-            
-            # 3. VERIFICATION TABLE (The "Anti-Hallucination" Feature)
-            with st.expander("📊 Tarkista taustadata (Verification Data)", expanded=True):
-                st.markdown("Tämä taulukko on laskettu suoraan datasta. Kuvaaja perustuu tähän.")
-                st.dataframe(res['plot_data'], width='content')
                 
-            # 4. Show Code (Transparency)
+            # 3. Show Code
             with st.expander("Näytä Python-koodi"):
                 st.code(st.session_state.last_code, language='python')

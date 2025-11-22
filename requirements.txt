@@ -1,10 +1,7 @@
-cmake
 pandas
 openpyxl
 streamlit
 plotly
-sentence-transformers
-nltk
 scikit-learn
 pytest
 openai
