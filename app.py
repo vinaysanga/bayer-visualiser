@@ -82,7 +82,7 @@ if st.session_state.get('is_processing', False):
     current_sheet = st.session_state.get('current_sheet', '')
     default_prompt = prompts_map.get(current_sheet, "Valitse analyysi...")
     
-    with st.spinner("Luodaan visualisointia..."):
+    with st.spinner("Luodaan visuaalisointia..."):
         try:
             fig = st.session_state.visualizer.visualize(default_prompt, df)
             
