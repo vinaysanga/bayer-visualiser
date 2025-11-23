@@ -12,7 +12,7 @@
                 "--server.headless",
                 "true"
             ],
-            "python": "${workspaceFolder}/venv313/bin/python",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "jinja": true,
             "justMyCode": true
         }

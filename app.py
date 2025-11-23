@@ -1,12 +1,17 @@
 import os
-# Suppress tokenizers parallelism warning
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
+import warnings
 import streamlit as st
 import pandas as pd
 from semantic_visualizer import SemanticVisualizer
 
 from dotenv import load_dotenv
+import json
+
+# Suppress tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+warnings.filterwarnings('ignore')
+
 
 load_dotenv()
 
@@ -19,9 +24,9 @@ st.set_page_config(page_title="Bayer HSE Visualizer", layout="wide")
 if 'visualizer' not in st.session_state:
     st.session_state.visualizer = SemanticVisualizer(OPENROUTER_API_KEY, MODEL_NAME)
 
-st.title("🛡️ Bayer HSE - Visualizer Demo")
+st.title("Bayer HSE - Visualizer Demo")
 
-# 1. LOAD
+# 1. LOAD DEMO DATA
 @st.cache_resource
 def load_excel_file():
     try:
@@ -38,31 +43,24 @@ if xl:
         sheet_names = xl.sheet_names
         selected_sheet = st.selectbox("Valitse aineisto:", sheet_names)
         
-        # Load the selected sheet
         if selected_sheet:
-            # Check if sheet changed BEFORE loading new data
             sheet_changed = 'current_sheet' not in st.session_state or st.session_state.current_sheet != selected_sheet
             
             st.session_state.df = pd.read_excel(xl, sheet_name=selected_sheet)
             st.success(f"Ladattu '{selected_sheet}': {len(st.session_state.df)} riviä.")
             
-            # Reset processed state when sheet changes
             if sheet_changed:
                 st.session_state.current_sheet = selected_sheet
-                # Clear all analysis-related session state
                 for key in ['processed_df', 'last_result', 'last_code', 'last_proc_df', 'is_processing']:
                     if key in st.session_state:
                         del st.session_state[key]
 
 if 'df' not in st.session_state:
-    # Fallback if something goes wrong
     st.stop()
 
 if st.session_state.df is not None:
-    # st.success(f"Loaded {len(st.session_state.df)} rows from bayer_data.xlsx") # Moved to sidebar
     pass
 
-import json
 
 # Load Prompts
 @st.cache_data
@@ -77,32 +75,29 @@ def load_prompts():
 prompts_map = load_prompts()
 
 # 2. PROCESS (runs when is_processing is True)
-if st.session_state.get('is_processing', False):    
+if st.session_state.get('is_processing', False):
+    st.empty()
+    
     df = st.session_state.df
     current_sheet = st.session_state.get('current_sheet', '')
     default_prompt = prompts_map.get(current_sheet, "Valitse analyysi...")
     
-    # Stage 1: LLM Clustering
-    with st.spinner("Analysoidaan dataa ja luodaan kategorioita..."):
-        enriched_df = st.session_state.visualizer.llm_cluster_dataframe(df, default_prompt)
+    with st.spinner("Luodaan visualisointia..."):
+        try:
+            fig = st.session_state.visualizer.visualize(default_prompt, df)
+            
+            st.session_state.last_result = {
+                "success": True,
+                "fig": fig,
+                "chart_type": "visualization"
+            }
+        except Exception as e:
+            st.error(f"Virhe: {str(e)}")
+            st.session_state.last_result = None
     
-    # Stage 2: LLM Visualization
-    with st.spinner("Generoidaan visualisointia..."):
-        # A. Get Code
-        code = st.session_state.visualizer.generate_visualization_code(default_prompt, enriched_df)
-        
-        # B. Execute and get DICT response
-        result = st.session_state.visualizer.execute_code(code, enriched_df)
-        
-        if result["success"]:
-            st.session_state.last_result = result
-            st.session_state.last_code = code
-        else:
-            st.error(f"Virhe: {result['error']}")
-    
-    # Clear processing flag and rerun to show results
     st.session_state.is_processing = False
     st.rerun()
+
 
 # 3. SHOW UI (only if not processing)
 if 'df' in st.session_state and st.session_state.df is not None and not st.session_state.get('is_processing', False):
@@ -114,27 +109,17 @@ if 'df' in st.session_state and st.session_state.df is not None and not st.sessi
     with col_chat:
         st.subheader("Analyysi")
         
-        # Get prompt for current sheet
         current_sheet = st.session_state.get('current_sheet', '')
         default_prompt = prompts_map.get(current_sheet, "Valitse analyysi...")
         
         st.info(f"**Skenaarion kysymys:**\n\n{default_prompt}")
         
         if st.button("Suorita Analyysi"):
-            # Set processing flag and rerun to hide UI
             st.session_state.is_processing = True
             st.rerun()
 
     with col_viz:
-        if 'last_result' in st.session_state:
+        if 'last_result' in st.session_state and st.session_state.last_result:
             res = st.session_state.last_result
             
-            # 1. Show Chart Type
-            st.caption(f"🤖 Valittu visualisointityyppi: **{res['chart_type'].upper()}**")
-            
-            # 2. Show the Chart
             st.plotly_chart(res['fig'], width='content')
-                
-            # 3. Show Code
-            with st.expander("Näytä Python-koodi"):
-                st.code(st.session_state.last_code, language='python')

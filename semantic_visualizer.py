@@ -12,6 +12,40 @@ class SemanticVisualizer:
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_api_key,
         )
+    
+    def visualize(self, prompt: str, df: pd.DataFrame):
+        """
+        Main API method - Returns a Plotly figure given a prompt and dataframe.
+        
+        Args:
+            prompt: Natural language query describing what to visualize
+            df: Pandas DataFrame containing the data to visualize
+            
+        Returns:
+            plotly.graph_objects.Figure: Interactive visualization
+            
+        Raises:
+            Exception: If visualization generation or execution fails
+            
+        Example:
+            >>> viz = SemanticVisualizer(api_key, model)
+            >>> fig = viz.visualize("Show trends over time", my_dataframe)
+            >>> fig.show()  # or st.plotly_chart(fig) in Streamlit
+        """
+        # Stage 1: Enrich data with LLM-generated categories
+        enriched_df = self.llm_cluster_dataframe(df, prompt)
+        
+        # Stage 2: Generate visualization code
+        code = self.generate_visualization_code(prompt, enriched_df)
+        
+        # Stage 3: Execute and return figure
+        result = self.execute_code(code, enriched_df)
+        
+        if result["success"]:
+            return result["fig"]
+        else:
+            raise Exception(f"Visualization failed: {result['error']}")
+    
 
     def llm_cluster_dataframe(self, df, user_query):
         """
@@ -153,12 +187,20 @@ class SemanticVisualizer:
            - For categorization/grouping needs, you can analyze the 'Havainto' text directly using string operations, keyword matching, or create categories on-the-fly.
            - For time-based analysis, use 'havainto_pvm' or 'havainto_käsitelty_pvm'.
            - You can calculate derived metrics like processing time: (havainto_käsitelty_pvm - havainto_pvm).
-        4. OUTPUT FORMAT: Return ONLY valid Python code defining exactly these 3 variables:
+        4. **CRITICAL - Date Handling:**
+           - ALWAYS use pd.to_datetime() when working with date columns
+           - For time-based grouping, use .dt accessor (e.g., df['date'].dt.month, df['date'].dt.year)
+           - Ensure dates are properly parsed before any operations
+        5. **CRITICAL - Number Handling:**
+           - ALWAYS verify numeric columns with pd.to_numeric() if needed
+           - Handle NaN values explicitly before aggregations
+           - Use proper aggregation functions (count, sum, mean) - never assume data types
+        6. OUTPUT FORMAT: Return ONLY valid Python code defining exactly these 3 variables:
            - `chart_type` (string): e.g., "bar", "line", "pie".
            - `plot_data` (pandas DataFrame): The aggregated data used for the plot.
            - `fig` (plotly figure object): The final visualization.
-        5. LANGUAGE: All chart titles, axis labels, and tooltips MUST be in Finnish.
-        6. Do not use formatting like ** or markdown blocks.
+        7. LANGUAGE: All chart titles, axis labels, and tooltips MUST be in Finnish.
+        8. Do not use formatting like ** or markdown blocks.
 
         Example Logic:
         # User asks: "Categorize observations by safety theme"
