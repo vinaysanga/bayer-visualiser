@@ -32,11 +32,11 @@ class SemanticVisualizer:
             >>> fig = viz.visualize("Show trends over time", my_dataframe)
             >>> fig.show()  # or st.plotly_chart(fig) in Streamlit
         """
-        # Stage 1: Enrich data with LLM-generated categories
-        enriched_df = self.llm_cluster_dataframe(df, prompt)
+        # Stage 1: LLM Analyzer (Data Transformation)
+        enriched_df = self.llm_analyzer(df, prompt)
         
-        # Stage 2: Generate visualization code
-        code = self.generate_visualization_code(prompt, enriched_df)
+        # Stage 2: LLM Code Generation
+        code = self.llm_code_generation(prompt, enriched_df)
         
         # Stage 3: Execute and return figure
         result = self.execute_code(code, enriched_df)
@@ -47,9 +47,9 @@ class SemanticVisualizer:
             raise Exception(f"Visualization failed: {result['error']}")
     
 
-    def llm_cluster_dataframe(self, df, user_query):
+    def llm_analyzer(self, df, user_query):
         """
-        Phase 1: LLM-based Data Transformation
+        Phase 1: LLM Analyzer
         The LLM analyzes the observations and transforms the data as needed to answer the question.
         """
         print(f"   -> LLM analyzing and transforming data...")
@@ -157,9 +157,10 @@ class SemanticVisualizer:
             # Fallback: return original dataframe
             return df.copy()
 
-    def generate_visualization_code(self, user_query, df):
+    def llm_code_generation(self, user_query, df):
         """
-        Phase 2: The Visualizer Architect
+        Phase 2: LLM Code Generation
+        Generates Python code to visualize the data based on the user's query.
         """
         # 1. Context Construction
         print(f"   [DEBUG] Dataframe Columns: {list(df.columns)}")
