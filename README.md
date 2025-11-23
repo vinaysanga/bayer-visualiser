@@ -27,33 +27,24 @@ The system uses a two-stage LLM pipeline:
 
 ## Installation
 
-This project uses [uv](https://github.com/astral-sh/uv) for fast dependency management and automatic Python version handling.
-
-1. **Install uv** (if not already installed)
+1. **Install uv** - [Installation guide](https://github.com/astral-sh/uv#installation)
 
 ```bash
+# macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-2. **Clone the repository**
+2. **Clone and go to project directory**
 
-Using HTTPS:
 ```bash
 git clone https://github.com/vinaysanga/bayer-visualiser.git
-```
-
-Or using SSH:
-```bash
-git clone git@github.com:vinaysanga/bayer-visualiser.git
-```
-
-3. **Change directory**
-
-```bash
 cd bayer-visualiser
 ```
 
-4. **Install dependencies** (uv will automatically use Python 3.13 from .python-version)
+3. **Setup dependencies**
 
 ```bash
 uv sync
@@ -77,30 +68,36 @@ LLM_TEMPERATURE_VISUALIZATION = 0.0   # 0 = deterministic code generation
 
 ## Usage
 
-### Quick Start
+### Integration with Existing Applications
+
+The `visualize()` method provides a simple wrapper for integrating LLM-powered visualizations into your existing application:
 
 ```python
 from semantic_visualizer import SemanticVisualizer
-import pandas as pd
+import os
 
-# Initialize
+# Initialize once (e.g., at app startup)
 viz = SemanticVisualizer(
-    openrouter_api_key="your_api_key",
-    llm_model="google/gemini-2.5-pro"
+    openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
+    llm_model=os.getenv("MODEL_NAME")
 )
 
-# Load your data
-df = pd.read_excel("your_data.xlsx")
+# Use anywhere in your application
+def create_chart(user_prompt, dataframe):
+    """Generate a chart from user's natural language query"""
+    try:
+        fig = viz.visualize(user_prompt, dataframe)
+        return fig
+    except Exception as e:
+        print(f"Visualization error: {e}")
+        return None
 
-# Generate visualization from natural language prompt
-fig = viz.visualize("Show trends over time", df)
-
-# Display in Streamlit
-import streamlit as st
-st.plotly_chart(fig)
-
-# Or display standalone
-fig.show()
+# Example: In your Streamlit/Flask/FastAPI app
+fig = create_chart("Show monthly trends", my_df)
+if fig:
+    st.plotly_chart(fig)  # Streamlit
+    # or fig.show()       # Standalone
+    # or fig.to_html()    # Web apps
 ```
 
 ### Running the Demo Application
