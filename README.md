@@ -15,10 +15,28 @@ A two-stage LLM-powered analytics tool for generating visualizations from data. 
 prompt + DataFrame → LLM Analysis → LLM Code Generation → Plotly Figure
 ```
 
-The system uses a two-stage LLM pipeline:
-1. **Stage 1**: Analyzes data and creates relevant categories
-2. **Stage 2**: Generates Python/Plotly code for visualization
-3. **Output**: Returns an interactive Plotly figure
+The system follows a three-phase pipeline:
+1. **Phase 1: Data Transformation (LLM Analyzer)**: Analyzes data and creates relevant categories
+2. **Phase 2: Code Generation (LLM Architect)**: Generates Python/Plotly code for visualization
+3. **Phase 3: Execution & Verification**: Executes code and returns an interactive Plotly figure
+
+## Chart Generation + Verification
+
+The system follows a three-phase pipeline to ensure accurate and interactive visualizations:
+
+1.  **Phase 1: Data Transformation (LLM Analyzer)**: The LLM analyzes the raw Finnish safety observations and the user's query. It generates transformation logic (categories, keyword mappings, derived fields) to structure the data for analysis.
+2.  **Phase 2: Code Generation (LLM Architect)**: Based on the transformed data structure, the LLM generates Python code using `plotly.express`. It handles date parsing, numeric conversions, and aggregations. All titles and labels are generated in Finnish.
+3.  **Phase 3: Execution & Verification**: The generated code is executed in a controlled environment. The system verifies the output by extracting the resulting Plotly figure (`fig`), chart type, and the aggregated `plot_data`. If execution fails, it provides detailed error feedback.
+
+## Data Source / How to Reproduce
+
+-   **Data Source**: The demo application uses data from [data/bayer_data.xlsx](data/bayer_data.xlsx) located in the `data/` directory.
+-   **Scenarios**: The pre-configured questions for each data sheet are defined in [data/prompts.json](data/prompts.json).
+-   **Reproduction**: 
+    1.  Ensure you have followed the [Installation](#installation) and [Configuration](#configuration) steps.
+    2.  Run the demo app: `uv run streamlit run app.py`.
+    3.  Select any sheet (e.g., "Rappuset") from the sidebar.
+    4.  Click "Suorita Analyysi" to generate the visualization based on the data and scenario-specific prompt.
 
 ## Requirements
 - **uv**
@@ -68,7 +86,9 @@ LLM_TEMPERATURE_VISUALIZATION = 0.0   # 0 = deterministic code generation
 
 ## Usage
 
-### Integration with Existing Applications
+There are two ways to use this library/application:
+
+### 1. Integration with Existing Applications (as asked in the challenge)
 
 The `visualize()` method provides a simple wrapper for integrating LLM-powered visualizations into your existing application:
 
@@ -100,7 +120,7 @@ if fig:
     # or fig.to_html()    # Web apps
 ```
 
-### Running the Demo Application
+### 2. Running the Demo Application
 
 ```bash
 uv run streamlit run app.py
@@ -114,6 +134,7 @@ The app will open in your browser at `http://localhost:8501`
 2. **Review Question**: See the pre-configured analysis question
 3. **Run Analysis**: Click "Suorita Analyysi"
 4. **View Results**: Explore the generated visualization
+
 
 ## Project Structure
 
