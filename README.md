@@ -2,6 +2,8 @@
 
 A two-stage LLM-powered analytics tool for generating visualizations from data. This application uses AI to automatically categorize observations and generate intelligent visualizations based on natural language queries.
 
+
+
 ## Features
 
 - **Simple API**: Single method `visualize(prompt, dataframe)` returns a Plotly figure
@@ -10,23 +12,23 @@ A two-stage LLM-powered analytics tool for generating visualizations from data. 
 - **Configurable**: Adjust LLM behavior through `config.py`
 
 ## Architecture
-
 ```
-prompt + DataFrame → LLM Analysis → LLM Code Generation → Plotly Figure
+Prompt + DataFrame → Analysis Agent → Visualization Agent → Code Executor → Plotly Figures
 ```
+![Architecture Diagram](assets/architecture.png)
 
 The system follows a three-phase pipeline:
-1. **Phase 1: Data Transformation (LLM Analyzer)**: Analyzes data and creates relevant categories
-2. **Phase 2: Code Generation (LLM Architect)**: Generates Python/Plotly code for visualization
-3. **Phase 3: Execution & Verification**: Executes code and returns an interactive Plotly figure
+1. **Phase 1: Analysis Agent**: Analyzes data and creates relevant categories
+2. **Phase 2: Visualization Agent**: Generates Python/Plotly code for visualization
+3. **Phase 3: Code Executor**: Executes code and returns an interactive Plotly figure
 
 ## Chart Generation + Verification
 
 The system follows a three-phase pipeline to ensure accurate and interactive visualizations:
 
-1.  **Phase 1: Data Transformation (LLM Analyzer)**: The LLM analyzes the raw Finnish safety observations and the user's query. It generates transformation logic (categories, keyword mappings, derived fields) to structure the data for analysis.
-2.  **Phase 2: Code Generation (LLM Architect)**: Based on the transformed data structure, the LLM generates Python code using `plotly.express`. It handles date parsing, numeric conversions, and aggregations. All titles and labels are generated in Finnish.
-3.  **Phase 3: Execution & Verification**: The generated code is executed in a controlled environment. The system verifies the output by extracting the resulting Plotly figure (`fig`), chart type, and the aggregated `plot_data`. If execution fails, it provides detailed error feedback.
+1.  **Phase 1: Analysis Agent**: The LLM analyzes the raw Finnish safety observations and the user's query. It generates transformation logic (categories, keyword mappings, derived fields) to structure the data for analysis.
+2.  **Phase 2: Visualization Agent**: Based on the transformed data structure, the LLM generates Python code using `plotly.express`. It handles date parsing, numeric conversions, and aggregations. All titles and labels are generated in Finnish.
+3.  **Phase 3: Code Executor**: The generated code is executed in a controlled environment. The system verifies the output by extracting the resulting Plotly figure (`fig`), chart type, and the aggregated `plot_data`. If execution fails, it provides detailed error feedback.
 
 ## Data Source / How to Reproduce
 
@@ -134,6 +136,8 @@ The app will open in your browser at `http://localhost:8501`
 2. **Review Question**: See the pre-configured analysis question
 3. **Run Analysis**: Click "Suorita Analyysi"
 4. **View Results**: Explore the generated visualization
+
+![Demo Application](assets/demo.png)
 
 
 ## Project Structure
